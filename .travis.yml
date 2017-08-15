@@ -3,40 +3,33 @@ sudo: required
 language: python
 
 python:
+  - "3.5.2"
   - "3.5"
   - "3.6"
-
-env:
-  - DOCKER_VERSION=17.03
-  - DOCKER_VERSION=17.04
-  - DOCKER_VERSION=17.05
-  - DOCKER_VERSION=17.06
 
 services:
   - docker
 
+env:
+  DOCKER_COMPOSE_VERSION: 1.12.0
+
 install:
-  - docker run -d --privileged --net host --name ci-docker docker:$DOCKER_VERSION-dind dockerd -H tcp://localhost:27015
-  - docker run -d --name registry -p 5000:5000 registry
-  - pip install -r requirements/ci.txt
+  - pip install codecov
+  - sudo apt-get update
+  - sudo apt-get install -o Dpkg::Options::="--force-confold" --force-yes -y docker-ce
+  - sudo rm /usr/local/bin/docker-compose
+  - curl -L https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-`uname -s`-`uname -m` > docker-compose
+  - chmod +x docker-compose
+  - sudo mv docker-compose /usr/local/bin
+  - docker-compose build
+  - pip install flake8
+  - pip install docutils
+  - pip install pygments
 
 script:
+  - flake8 aiodocker tests
   - python setup.py check -rms
-  - DOCKER_HOST=tcp://localhost:27015 tox
+  - docker-compose run aiodocker
 
 after_success:
   - codecov
-
-jobs:
-  include:
-    - stage: deploy
-      python: 3.6
-      deploy:
-        provider: pypi
-        user: barrachri
-        password:
-          secure: "a901yEw9KJvjwnZMbKfJKUP5TYWHJG68Cjx9au0DQrrVk6ENV2aAZfzLgs/gqYEB1wn7IM8V9BflmSLnHlXcAIhyx36g/rV6XFaLActthjJz6j9KAupUL9+KSQdOTJxntisjtB3uXYGHVrwQq+TJgcrcGtTs6lF7n7HeHt6Y4ru62czSAb0gC30BviNWGFD1c5RS4Lo7O8qplAQozfQub/fkAzpGaL5XZu9n5D7Uz8aDcTEV7VPWXdRS7ZrfNGq3OsoFzlbS7mqlrF/Wi0R2qIyV4xbmzpAPazkPHKMxZIER7B6yY6Kb4WajQ0eTgPGZpjR2gpzZgUZYlSRQ/eTsxUtGqH3OpmVbWsHMXIESIG4QFpePOu5OhKEm/23cZzXHobXkBdhd4kzr+FSDD29o+x5MJpUWgWGkVrTb44CCMRig3xwTXpyRayYepvpok3207nJd9nKHYdS/QMGa9/uVXd+/ItHiFwgIb9O4leWKa5UENy2wgs2HCN4QfWgpeFj93tIJJBpBa/d9RZiXVDHzxMU7vI9MzBr9rsqocLcMybszzCR+378AV621NvVOn5yvKeuoud16PvvSTQF1BkMpywKXUh9EZhi8+YRmZVfV5INZfZCv6jwhCIm/VbDVLK4CwHv4VwEI80jrxiSd1JRuVY/lYV2ddYCQoViKnNmehW4="
-        distributions: sdist bdist_wheel
-        on:
-          tags: true
-          all_branches: true
